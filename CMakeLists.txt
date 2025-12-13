@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 add_subdirectory(ext/FatFs_SPI build)
-add_subdirectory(ext/ili9225)
+add_subdirectory(mod/ili9xxx)
 
 add_executable(PocketPico
         src/main.c
@@ -27,16 +27,19 @@ target_link_libraries(PocketPico
         pico_stdlib pico_stdio pico_bootrom pico_multicore pico_multicore
         hardware_clocks hardware_pio hardware_vreg hardware_pio hardware_flash
         hardware_sync hardware_pll hardware_spi hardware_irq hardware_dma
-        pico_binary_info ili9225_lcd)
+        pico_binary_info ili9xxx_lcd)
+
 target_compile_definitions(PocketPico PRIVATE
         PARAM_ASSERTIONS_DISABLE_ALL=1
         PICO_ENTER_USB_BOOT_ON_EXIT=1
-        PICO_STDIO_ENABLE_CRLF_SUPPORT=0
-        PICO_STDIO_DEFAULT_CRLF=0
+        PICO_STDIO_ENABLE_CRLF_SUPPORT=1
+        PICO_STDIO_DEFAULT_CRLF=1
         PICO_PRINTF_SUPPORT_FLOAT=0
         PICO_PRINTF_SUPPORT_EXPONENTIAL=0
         PICO_PRINTF_SUPPORT_LONG_LONG=1
-        PICO_PRINTF_SUPPORT_PTRDIFF_T=0)
+        PICO_PRINTF_SUPPORT_PTRDIFF_T=0
+	ILI9341=1
+	)
 
 function(pico_add_verbose_dis_output TARGET)
 	add_custom_command(TARGET ${TARGET} POST_BUILD
@@ -47,7 +50,7 @@ endfunction()
 
 pico_set_binary_type(PocketPico copy_to_ram)
 pico_enable_stdio_usb(PocketPico 1)
-pico_enable_stdio_uart(PocketPico 0)
+pico_enable_stdio_uart(PocketPico 1)
 pico_add_verbose_dis_output(PocketPico)
 pico_add_bin_output(PocketPico)
 pico_add_uf2_output(PocketPico)

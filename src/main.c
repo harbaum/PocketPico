@@ -17,7 +17,7 @@
 // Peanut-GB emulator settings
 #define ENABLE_LCD  1
 #define ENABLE_SOUND    1
-#define ENABLE_SDCARD   1
+#define ENABLE_SDCARD   0
 #define PEANUT_GB_HIGH_LCD_ACCURACY 1
 #define PEANUT_GB_USE_BIOS 0
 
@@ -57,8 +57,8 @@
 #include "debug.h"
 #include "hedley.h"
 #include "minigb_apu.h"
-#include "ili9225_lcd.h"
-#include "ili9225_font.h"
+#include "ili9xxx_lcd.h"
+#include "ili9xxx_font.h"
 #include "sdcard.h"
 #include "i2s.h"
 #include "gbcolors.h"
@@ -188,6 +188,24 @@ void gb_error(struct gb_s *gb, const enum gb_error_e gb_err, const uint16_t addr
 void lcd_draw_line(struct gb_s *gb, const uint8_t pixels[LCD_WIDTH],
            const uint_fast8_t line)
 {
+  // The peanut gb sometimes skips a line ...
+  // The following is a workaround for this. But in the long term the
+  // peanut gb should be fixed
+  static uint_fast8_t expected_line = 0;
+  if(line != expected_line) {
+    printf("Unexpected line %d instead of %d\n", line, expected_line);
+
+    // insert a dummy line, so the LCD does not get out of sync
+    ili9xxx_write_raw_pixels_chunk(pixels, LCD_WIDTH);
+  }
+    
+  expected_line = (line + 1)%LCD_HEIGHT;
+  
+#ifdef NO_COLORMAPPING
+    if(line == 0) ili9xxx_write_pixels_start(0, 0);
+    ili9xxx_write_raw_pixels_chunk(pixels, LCD_WIDTH);
+    ili9xxx_write_pixels_end();
+#else
     #if PEANUT_FULL_GBC_SUPPORT
     if (gb->cgb.cgbMode) {
         for (unsigned int x = 0; x < LCD_WIDTH; x++) {
@@ -195,22 +213,23 @@ void lcd_draw_line(struct gb_s *gb, const uint8_t pixels[LCD_WIDTH],
         }
     } else {
     #endif
+        // map onto palette
         for (unsigned int x = 0; x < LCD_WIDTH; x++) {
-            pixels_buffer[x] = palette[(pixels[x] & LCD_PALETTE_ALL) >> 4][pixels[x] & 3];
+	    pixels_buffer[x] = palette[(pixels[x] & LCD_PALETTE_ALL) >> 4][pixels[x] & 3];
         }
     #if PEANUT_FULL_GBC_SUPPORT
     }
     #endif
 
-    ili9225_write_pixels_wait();
-    if(line == 0) {
-        ili9225_write_pixels_start(30, 16);
-    } else if(line == LCD_HEIGHT) {
-        ili9225_write_pixels_end();
-    } else {
-        ili9225_write_pixels_chunk(pixels_buffer, LCD_WIDTH);
-    }
+    ili9xxx_write_pixels_wait();
+    if(line == 0)
+        ili9xxx_write_pixels_start(30, 16); // position is ignored by the ILI9341 variant
 
+    ili9xxx_write_pixels_chunk(pixels_buffer, LCD_WIDTH);
+
+    if(line == LCD_HEIGHT-1)
+        ili9xxx_write_pixels_end();
+#endif
 }
 #endif
 
@@ -461,9 +480,9 @@ uint16_t rom_file_selector_display_page(char filename[22][256],uint16_t num_page
     f_unmount(pSD->pcName);
 
     /* display *.gb rom files on screen */
-    ili9225_fill(0x0000);
+    ili9xxx_fill(0x0000);
     for(uint8_t ifile=0;ifile<num_file;ifile++) {
-        ili9225_text(filename[ifile],0,ifile*8,0xFFFF,0x0000);
+        ili9xxx_text(filename[ifile],0,ifile*8,0xFFFF,0x0000);
     }
     return num_file;
 }
@@ -483,7 +502,7 @@ void rom_file_selector() {
 
     /* select the first rom */
     uint8_t selected=0;
-    ili9225_text(filename[selected],0,selected*8,0xFFFF,0xF800);
+    ili9xxx_text(filename[selected],0,selected*8,0xFFFF,0xF800);
 
     /* get user's input */
     bool up,down,left,right,a,b,select,start;
@@ -502,28 +521,28 @@ void rom_file_selector() {
         }
         if(!a | !b) {
             /* copy the rom from the SD card to flash and start the game */
-            ili9225_fill(0x0000);
-            ili9225_text("Loading game", 55, 80, 0xFFFF, 0x0000);
+            ili9xxx_fill(0x0000);
+            ili9xxx_text("Loading game", 55, 80, 0xFFFF, 0x0000);
             load_cart_rom_file(filename[selected]);
             break;
         }
         if(!down) {
             /* select the next rom */
-            ili9225_text(filename[selected],0,selected*8,0xFFFF,0x0000);
+            ili9xxx_text(filename[selected],0,selected*8,0xFFFF,0x0000);
             selected++;
             if(selected>=num_file) selected=0;
-            ili9225_text(filename[selected],0,selected*8,0xFFFF,0xF800);
+            ili9xxx_text(filename[selected],0,selected*8,0xFFFF,0xF800);
             sleep_ms(150);
         }
         if(!up) {
             /* select the previous rom */
-            ili9225_text(filename[selected],0,selected*8,0xFFFF,0x0000);
+            ili9xxx_text(filename[selected],0,selected*8,0xFFFF,0x0000);
             if(selected==0) {
                 selected=num_file-1;
             } else {
                 selected--;
             }
-            ili9225_text(filename[selected],0,selected*8,0xFFFF,0xF800);
+            ili9xxx_text(filename[selected],0,selected*8,0xFFFF,0xF800);
             sleep_ms(150);
         }
         if(!right) {
@@ -537,7 +556,7 @@ void rom_file_selector() {
             }
             /* select the first file */
             selected=0;
-            ili9225_text(filename[selected],0,selected*8,0xFFFF,0xF800);
+            ili9xxx_text(filename[selected],0,selected*8,0xFFFF,0xF800);
             sleep_ms(150);
         }
         if((!left) && num_page>0) {
@@ -546,7 +565,7 @@ void rom_file_selector() {
             num_file=rom_file_selector_display_page(filename,num_page);
             /* select the first file */
             selected=0;
-            ili9225_text(filename[selected],0,selected*8,0xFFFF,0xF800);
+            ili9xxx_text(filename[selected],0,selected*8,0xFFFF,0xF800);
             sleep_ms(150);
         }
         tight_loop_contents();
@@ -599,23 +618,26 @@ void core1_audio(void) {
 }
 #endif
 
-
 int main(void)
 {
     static struct gb_s gb;
     enum gb_init_error_e ret;
 
-    /* Overclock to 266 MHZ. */
-    {
-        const unsigned vco = 1596 * 1000 * 1000;
-        const unsigned div1 = 6, div2 = 1;
+    vreg_set_voltage(VREG_VOLTAGE_1_15);
+    sleep_ms(2);
+    // increase the system clock a from 125 to allow for slightly faster spi clock
+    // 240MHz allows for 60MHz SPI clock which in turn allows for 60Hz
+    set_sys_clock_khz(240000, true);
 
-        vreg_set_voltage(VREG_VOLTAGE_1_15);
-        sleep_ms(2);
-        set_sys_clock_pll(vco, div1, div2);
-        sleep_ms(2);
-    }
-
+    uint32_t freq = clock_get_hz(clk_sys);
+    // clk_peri does not have a divider, so input and output frequencies will be the same
+    clock_configure(clk_peri,
+                    0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
+                    freq, freq);
+    
+    stdio_init_all();
+    printf("System clock: %d\n", freq);
+    
     DBG_INIT();
     DBG_INFO("INIT: ");
 
@@ -666,12 +688,12 @@ int main(void)
 #endif
 
 #if ENABLE_LCD
-    ili9225_init();
+    ili9xxx_init();
 #endif
 
 while(true) {
 #if ENABLE_LCD
-    ili9225_set_window(0, ILI9225_SCREEN_WIDTH, 0, ILI9225_SCREEN_HEIGHT);
+    ili9xxx_set_window(0, ILI9XXX_SCREEN_WIDTH, 0, ILI9XXX_SCREEN_HEIGHT);
 #endif
 
 #if ENABLE_SDCARD
@@ -702,16 +724,33 @@ while(true) {
 
 #if ENABLE_LCD
     gb_init_lcd(&gb, &lcd_draw_line);
-    ili9225_fill(0x0000);
-    ili9225_set_window(
-        (ILI9225_SCREEN_WIDTH - LCD_WIDTH) / 2,
+    ili9xxx_fill(0x0000);
+
+    // setup the window size taking the screen size and scale factor
+    // into account. This might actually all be hidden inside the display driver
+#ifdef ENABLE_XSCALE_1_5
+    ili9xxx_set_window(
+        (ILI9XXX_SCREEN_WIDTH - LCD_WIDTH*3/2) / 2,
+        LCD_WIDTH*3/2,
+        (ILI9XXX_SCREEN_HEIGHT - LCD_HEIGHT*3/2) / 2 + ILI9XXX_SCREEN_YOFFSET,
+        LCD_HEIGHT*3/2
+    );
+#else
+    ili9xxx_set_window(
+        (ILI9XXX_SCREEN_WIDTH - LCD_WIDTH) / 2,
         LCD_WIDTH,
-        (ILI9225_SCREEN_HEIGHT - LCD_HEIGHT) / 2,
+        (ILI9XXX_SCREEN_HEIGHT - LCD_HEIGHT) / 2,
         LCD_HEIGHT
     );
+#endif
     DBG_INFO("LCD ");
 #endif
 
+#if PEANUT_GB_USE_BIOS
+    gb_set_bootrom(&gb, bootrom_read);
+    gb_reset(&gb);
+#endif
+    
 #if ENABLE_SDCARD
     /* Load Save File. */
     read_cart_ram_file(&gb);
@@ -802,24 +841,6 @@ while(true) {
 
         switch(input)
         {
-#if 0
-        static bool invert = false;
-        static bool sleep = false;
-        static uint8_t freq = 1;
-        static ili9225_color_mode_e colour = ILI9225_COLOR_MODE_FULL;
-
-        case 'i':
-            invert = !invert;
-            ili9225_display_control(invert, colour);
-            break;
-
-        case 'f':
-            freq++;
-            freq &= 0x0F;
-            ili9225_set_drive_freq(freq);
-            DBG_INFO("Freq %u\n", freq);
-            break;
-#endif
         case 'i':
             gb.direct.interlace = !gb.direct.interlace;
             break;
@@ -837,10 +858,9 @@ while(true) {
             end_time = time_us_64();
             diff = end_time-start_time;
             fps = ((uint64_t)frames*1000*1000)/diff;
-            DBG_INFO("Frames: %u\n"
-                "Time: %lu us\n"
-                "FPS: %lu\n",
-                frames, diff, fps);
+            DBG_INFO("Frames: %u\n", frames);
+            DBG_INFO("Time: %lu us\n", diff); 
+            DBG_INFO("FPS: %lu\n", fps);
             stdio_flush();
             frames = 0;
             start_time = time_us_64();
