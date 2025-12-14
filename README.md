@@ -5,6 +5,8 @@ adds support for the ILI9341 family of displays with 320x240 pixels resolution
 and available in various sizes from 2.0 to 3.5 inch. Together with a simple 1.5x scaler,
 the emulator can make efficient use of the screen estate.
 
+![PocketPico on ILI9341.](./docs/pocketpico_ili9341.jpeg)
+
 # PocketPico (The GameBoy Emulator for RP2040)
 
 This is a fork of the [Pico-GB GameBoy emulator for RP2040 from YouMakeTech](https://github.com/YouMakeTech/Pico-GB) which itself is a fork of the [RP2040-GB Game Boy (DMG) emulator from deltabeard](https://github.com/deltabeard/RP2040-GB).
