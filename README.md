@@ -7,6 +7,20 @@ the emulator can make efficient use of the screen estate.
 
 ![PocketPico on ILI9341.](./docs/pocketpico_ili9341.jpeg)
 
+This is meant to be mounted into a
+[Lego Gameboy #72046](https://www.lego.com/de-de/product/game-boy-72046) where
+the 2.8 inch display nicely fills the entire display area.
+
+Since this is to be used as a single game setup there's no SD card and the ILI9341
+display routines have thus not been adopted for the SD card menu.
+
+## Lego installation
+
+Some extensive dremeling is required to make the display fit into the Gameboy.
+
+![Dremeled display](./docs/stripped_display.jpeg)
+
+
 # PocketPico (The GameBoy Emulator for RP2040)
 
 This is a fork of the [Pico-GB GameBoy emulator for RP2040 from YouMakeTech](https://github.com/YouMakeTech/Pico-GB) which itself is a fork of the [RP2040-GB Game Boy (DMG) emulator from deltabeard](https://github.com/deltabeard/RP2040-GB).
