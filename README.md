@@ -20,6 +20,19 @@ Some extensive dremeling is required to make the display fit into the Gameboy.
 
 ![Dremeled display](./docs/stripped_display.jpeg)
 
+## Flashing games
+
+Without SD card we need another means to install the game cartridge
+rom. With typically 2 or more Megabytes of flash memory, the RP2040
+has plenty of space for cartridge images. Instead of loading from SD
+card into flash the
+[Pico Debug Probe](https://www.raspberrypi.com/documentation/microcontrollers/debug-probe.html)
+may be used to upload game cartridges from a PC into the RP2040's
+flash memory. E.g. ```tetris.gb``` can be installed like so:
+
+```
+openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg -c "adapter speed 5000" -c "program ../roms/tetris.gb 0x10100000 verify exit"
+```
 
 # PocketPico (The GameBoy Emulator for RP2040)
 
