@@ -16,19 +16,19 @@ display routines have thus not been adopted for the SD card menu.
 
 ## Lego installation
 
-Some extensive dremeling is required to make the display fit into the Gameboy.
+Some extensive dremeling is required to make the display fit into the Lego Gameboy.
 
 ![Dremeled display](./docs/stripped_display.jpeg)
 
-The Pico and e.g. the II2 amp can then be taped to the rear side of the display.
-Using some [two stripes of thick double sided tape](https://www.tesa.com/de-de/buero-und-zuhause/tesa-powerbond-indoor.html)
-allows to rote the wires underneath the Pico.
+The Pico and e.g. the I²S amp can then be taped to the rear side of the display.
+Using some [two stripes of thick double-sided tape](https://www.tesa.com/de-de/buero-und-zuhause/tesa-powerbond-indoor.html)
+allows to route the wires underneath the Pico.
 
 ![Pico mounted](./docs/pico_mounted.jpeg)
 
 ## Wiring
 
-All components need to be wired as depiced.
+All components need to be wired as depicted.
 
 ![Wiring](./docs/wiring.png)
 
@@ -44,6 +44,16 @@ flash memory. E.g. ```tetris.gb``` can be installed like so:
 
 ```
 openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg -c "adapter speed 5000" -c "program ../roms/tetris.gb 0x10100000 verify exit"
+```
+
+An alternative is to use [Microsofts uf2conv tool](https://github.com/microsoft/uf2/blob/master/utils/uf2conv.md) to convert the gameboy cartridge images into regular ```uf2``` files. These
+can then be uploaded the usual way via file transfer. This upload will _not_ overwrite the
+main firmware but will only replace the cartridge data.
+
+```
+$ ./uf2conv.py tetris.gb --family RP2040 --base 0x10100000 --convert --output tetris.uf2 
+Converted to uf2, output size: 65536, start address: 0x10100000
+Wrote 65536 bytes to tetris.uf2
 ```
 
 # PocketPico (The GameBoy Emulator for RP2040)
