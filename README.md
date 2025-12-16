@@ -20,6 +20,12 @@ Some extensive dremeling is required to make the display fit into the Gameboy.
 
 ![Dremeled display](./docs/stripped_display.jpeg)
 
+The Pico and e.g. the II2 amp can then be taped to the rear side of the display.
+Using some [two stripes of thick double sided tape](https://www.tesa.com/de-de/buero-und-zuhause/tesa-powerbond-indoor.html)
+allows to rote the wires underneath the Pico.
+
+![Pico mounted](./docs/pico_mounted.jpeg)
+
 ## Flashing games
 
 Without SD card we need another means to install the game cartridge
