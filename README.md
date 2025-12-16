@@ -17,6 +17,8 @@ display routines have thus not been adopted for the SD card menu.
 ## Lego installation
 
 Some extensive dremeling is required to make the display fit into the Lego Gameboy.
+Also, the SD card slot and its resistors are being removed, so the Pico and
+other components can be taped flush to the displays PCB.
 
 ![Dremeled display](./docs/stripped_display.jpeg)
 
