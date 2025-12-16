@@ -26,6 +26,12 @@ allows to rote the wires underneath the Pico.
 
 ![Pico mounted](./docs/pico_mounted.jpeg)
 
+## Wiring
+
+All components need to be wired as depiced.
+
+![Wiring](./docs/wiring.png)
+
 ## Flashing games
 
 Without SD card we need another means to install the game cartridge
