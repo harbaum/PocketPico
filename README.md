@@ -68,6 +68,9 @@ Converted to uf2, output size: 65536, start address: 0x10100000
 Wrote 65536 bytes to tetris.uf2
 ```
 
+You can add a second ROM to address 0x10180000 which will be used if the SELECT button is
+pressed during power-up.
+
 # PocketPico (The GameBoy Emulator for RP2040)
 
 This is a fork of the [Pico-GB GameBoy emulator for RP2040 from YouMakeTech](https://github.com/YouMakeTech/Pico-GB) which itself is a fork of the [RP2040-GB Game Boy (DMG) emulator from deltabeard](https://github.com/deltabeard/RP2040-GB).

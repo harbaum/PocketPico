@@ -113,9 +113,14 @@ struct minigb_apu_ctx apu_ctx = {0};
  * Once done, we can access this at XIP_BASE + 1Mb.
  * Game Boy DMG ROM size ranges from 32768 bytes (e.g. Tetris) to 1,048,576 bytes (e.g. Pokemod Red)
  */
+#define SHADOW_ROM_BANK0
+
 #define FLASH_TARGET_OFFSET (1024 * 1024)
 const uint8_t *rom = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSET);
+#ifdef SHADOW_ROM_BANK0
 static unsigned char rom_bank0[65536];
+#endif
+static bool alt_rom = false;
 
 static uint8_t ram[32768];
 static int lcd_line_busy = 0;
@@ -143,10 +148,23 @@ static uint16_t pixels_buffer[LCD_WIDTH];
 uint8_t gb_rom_read(struct gb_s *gb, const uint_fast32_t addr)
 {
     (void) gb;
+#ifdef SHADOW_ROM_BANK0
     if(addr < sizeof(rom_bank0))
-        return rom_bank0[addr];
+      return rom_bank0[addr];
+#endif
 
     return rom[addr];
+}
+
+uint8_t gb_alt_rom_read(struct gb_s *gb, const uint_fast32_t addr)
+{
+    (void) gb;
+#ifdef SHADOW_ROM_BANK0
+    if(addr < sizeof(rom_bank0))
+      return rom_bank0[addr];
+#endif
+
+    return rom[addr+512*1024];
 }
 
 /**
@@ -188,18 +206,20 @@ void gb_error(struct gb_s *gb, const enum gb_error_e gb_err, const uint16_t addr
 void lcd_draw_line(struct gb_s *gb, const uint8_t pixels[LCD_WIDTH],
            const uint_fast8_t line)
 {
+#if 1
   // The peanut gb sometimes skips a line ...
   // The following is a workaround for this. But in the long term the
   // peanut gb should be fixed
   static uint_fast8_t expected_line = 0;
   if(line != expected_line) {
-    printf("Unexpected line %d instead of %d\n", line, expected_line);
+    DBG_INFO("Unexpected line %d instead of %d\n", line, expected_line);
 
     // insert a dummy line, so the LCD does not get out of sync
     ili9xxx_write_raw_pixels_chunk(pixels, LCD_WIDTH);
   }
     
   expected_line = (line + 1)%LCD_HEIGHT;
+#endif
   
 #ifdef NO_COLORMAPPING
     if(line == 0) ili9xxx_write_pixels_start(0, 0);
@@ -636,9 +656,9 @@ int main(void)
                     freq, freq);
     
     stdio_init_all();
-    printf("System clock: %d\n", freq);
-    
+
     DBG_INIT();
+    DBG_INFO("System clock: %d\n", freq);    
     DBG_INFO("INIT: ");
 
     time_init();
@@ -701,9 +721,15 @@ while(true) {
     rom_file_selector();
 #endif
 
+    // check if "start" is pressed
+    if(!gpio_get(GPIO_SELECT))
+      alt_rom = true;
+	       
     /* Initialise GB context. */
-    memcpy(rom_bank0, rom, sizeof(rom_bank0));
-    ret = gb_init(&gb, &gb_rom_read, &gb_cart_ram_read,
+#ifdef SHADOW_ROM_BANK0
+    memcpy(rom_bank0, rom+(alt_rom?(512*1024):0), sizeof(rom_bank0));
+#endif
+    ret = gb_init(&gb, alt_rom?&gb_alt_rom_read:&gb_rom_read, &gb_cart_ram_read,
               &gb_cart_ram_write, &gb_error, NULL);
     DBG_INFO("GB ");
 
@@ -750,7 +776,7 @@ while(true) {
     gb_set_bootrom(&gb, bootrom_read);
     gb_reset(&gb);
 #endif
-    
+
 #if ENABLE_SDCARD
     /* Load Save File. */
     read_cart_ram_file(&gb);

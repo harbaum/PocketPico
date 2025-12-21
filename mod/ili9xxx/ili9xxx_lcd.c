@@ -349,6 +349,9 @@ void ili9xxx_write_pixels_start(uint8_t x, uint8_t y) {
     ili9225_set_xy(x, y);
     ili9225_write_cmd(ILI9225_REG_GRAM_RW);
     ili9225_lcd_wait_idle(pio, sm);
+#else
+    // force write to begin of memory
+    ili9341_sendCommand(0x2c, NULL, 0);
 #endif
     ili9xxx_set_rc_cs(1, 0);
 }
@@ -482,7 +485,7 @@ void ili9xxx_set_window(uint16_t x_start, uint16_t x_length, uint16_t y_start, u
 #if ILI9341  
     uint8_t xwin[] = { W16(x_start), W16(x_start+x_length-1) };
     ili9341_sendCommand(0x2a, xwin, 4); // Column address set
-    uint8_t ywin[] = { W16(y_start), W16(y_start+y_length-1) };  // <--- this is broken in the emu
+    uint8_t ywin[] = { W16(y_start), W16(y_start+y_length-1) };
     ili9341_sendCommand(0x2b, ywin, 4); // Row address set
     ili9341_sendCommand(0x2c, NULL, 0);
 #else    
