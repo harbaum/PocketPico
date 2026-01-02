@@ -69,7 +69,14 @@ Wrote 65536 bytes to tetris.uf2
 ```
 
 You can add a second ROM to address 0x10180000 which will be used if the SELECT button is
-pressed during power-up.
+pressed during power-up and a third one to 0x10140000 which will be used if the START
+button is pressed.
+
+Furthermore, a copy of the cartridge RAM is kept in flash. Beware:
+Only one RAM copy is being maintained as this is meant to be used with
+Mario, Tetris and Zelda in the three flash locations. And since Zelda
+is the only one of these using RAM it's not a problem that only one
+RAM backup is kept in flash.
 
 # PocketPico (The GameBoy Emulator for RP2040)
 

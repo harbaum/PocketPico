@@ -120,9 +120,17 @@ const uint8_t *rom = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSET);
 #ifdef SHADOW_ROM_BANK0
 static unsigned char rom_bank0[65536];
 #endif
-static bool alt_rom = false;
 
-static uint8_t ram[32768];
+#define RAM_SIZE  8  // zelda has 8k RAM, others may have up to 32k
+
+#if !ENABLE_SDCARD
+#define RAM_WRITEBACK_DELAY (2*60)  // 120 frames = 2 seconds
+static bool ram_dirty = false;
+#define FLASH_RAM_OFFSET ((1024-RAM_SIZE) * 1024)
+const uint8_t *ram_backup = (const uint8_t *) (XIP_BASE + FLASH_RAM_OFFSET);
+#endif
+
+static uint8_t ram[RAM_SIZE*1024];
 static int lcd_line_busy = 0;
 static palette_t palette;   // Colour palette
 static uint8_t manual_palette_selected=0;
@@ -156,7 +164,8 @@ uint8_t gb_rom_read(struct gb_s *gb, const uint_fast32_t addr)
     return rom[addr];
 }
 
-uint8_t gb_alt_rom_read(struct gb_s *gb, const uint_fast32_t addr)
+// read rom from 0x10180000
+uint8_t gb_alt_rom1_read(struct gb_s *gb, const uint_fast32_t addr)
 {
     (void) gb;
 #ifdef SHADOW_ROM_BANK0
@@ -167,13 +176,25 @@ uint8_t gb_alt_rom_read(struct gb_s *gb, const uint_fast32_t addr)
     return rom[addr+512*1024];
 }
 
+// read rom from 0x10140000
+uint8_t gb_alt_rom2_read(struct gb_s *gb, const uint_fast32_t addr)
+{
+    (void) gb;
+#ifdef SHADOW_ROM_BANK0
+    if(addr < sizeof(rom_bank0))
+      return rom_bank0[addr];
+#endif
+
+    return rom[addr+256*1024];
+}
+
 /**
  * Returns a byte from the cartridge RAM at the given address.
  */
 uint8_t gb_cart_ram_read(struct gb_s *gb, const uint_fast32_t addr)
 {
     (void) gb;
-    return ram[addr];
+    return ram[addr & (RAM_SIZE*1024-1)];
 }
 
 /**
@@ -182,7 +203,10 @@ uint8_t gb_cart_ram_read(struct gb_s *gb, const uint_fast32_t addr)
 void gb_cart_ram_write(struct gb_s *gb, const uint_fast32_t addr,
                const uint8_t val)
 {
-    ram[addr] = val;
+    if(ram[addr & (RAM_SIZE*1024-1)] != val) {    
+        ram[addr & (RAM_SIZE*1024-1)] = val;
+	ram_dirty = true;
+    }
 }
 
 /**
@@ -435,7 +459,7 @@ void load_cart_rom_file(char *filename) {
             /* Next sector */
             flash_target_offset+=FLASH_SECTOR_SIZE;
         }
-        if(mismatch) {
+        if(!mismatch) {
             DBG_INFO("I Programming successful!\n");
         } else {
             DBG_INFO("E Programming failed!\n");
@@ -721,16 +745,27 @@ while(true) {
     rom_file_selector();
 #endif
 
-    // check if "start" is pressed
-    if(!gpio_get(GPIO_SELECT))
-      alt_rom = true;
-	       
-    /* Initialise GB context. */
+    // check if "select" is pressed
+    if(!gpio_get(GPIO_SELECT)) {	       
 #ifdef SHADOW_ROM_BANK0
-    memcpy(rom_bank0, rom+(alt_rom?(512*1024):0), sizeof(rom_bank0));
+      memcpy(rom_bank0, rom+512*1024, sizeof(rom_bank0));
 #endif
-    ret = gb_init(&gb, alt_rom?&gb_alt_rom_read:&gb_rom_read, &gb_cart_ram_read,
-              &gb_cart_ram_write, &gb_error, NULL);
+      ret = gb_init(&gb, &gb_alt_rom1_read, &gb_cart_ram_read,
+		    &gb_cart_ram_write, &gb_error, NULL);
+    } else if(!gpio_get(GPIO_START)) {	       
+#ifdef SHADOW_ROM_BANK0
+      memcpy(rom_bank0, rom+256*1024, sizeof(rom_bank0));
+#endif
+      ret = gb_init(&gb, &gb_alt_rom2_read, &gb_cart_ram_read,
+		    &gb_cart_ram_write, &gb_error, NULL);
+    } else {
+#ifdef SHADOW_ROM_BANK0
+      memcpy(rom_bank0, rom, sizeof(rom_bank0));
+#endif
+      ret = gb_init(&gb, &gb_rom_read, &gb_cart_ram_read,
+		    &gb_cart_ram_write, &gb_error, NULL);
+    }
+    
     DBG_INFO("GB ");
 
     if(ret != GB_INIT_NO_ERROR)
@@ -780,10 +815,16 @@ while(true) {
 #if ENABLE_SDCARD
     /* Load Save File. */
     read_cart_ram_file(&gb);
+#else
+    DBG_INFO("RAM read from flash\n");
+    memcpy(ram, ram_backup, RAM_SIZE*1024);
 #endif
 
     DBG_INFO("\n> ");
     uint_fast32_t frames = 0;
+#if !ENABLE_SDCARD
+    uint_fast32_t ram_delay_frames = 0;
+#endif
     uint64_t start_time = time_us_64();
     while(1)
     {
@@ -859,6 +900,30 @@ while(true) {
             }
         }
 
+#if !ENABLE_SDCARD
+	if(ram_dirty) {
+	    if(frames - ram_delay_frames > RAM_WRITEBACK_DELAY) {
+	        DBG_INFO("Erasing ram backup region...\n");
+		flash_range_erase(FLASH_RAM_OFFSET,RAM_SIZE*1024);
+		DBG_INFO("Programming ram backup region...\n");
+		flash_range_program(FLASH_RAM_OFFSET,ram,RAM_SIZE*1024);
+		
+		// verify
+		DBG_INFO("Done. Reading back ram backup region...\n");
+		bool mismatch = false;
+		for(int i=0;i<RAM_SIZE*1024;i++)
+		    if(ram_backup[i] != ram[i])
+		        mismatch = true;
+
+		if(mismatch) { DBG_INFO("Programming failed!\n"); }
+		else         { DBG_INFO("Programming successful!\n"); }
+	    		  
+		ram_dirty = false;
+	    }
+	} else
+	    ram_delay_frames = frames;
+#endif
+		
 #if ENABLE_DEBUG
         /* Serial monitor commands */
         input = getchar_timeout_us(0);
@@ -932,6 +997,7 @@ while(true) {
 
         case 'z':
         case 'w':
+        case 'y':
         {
             gb.direct.joypad_bits.a = 0;
             break;
