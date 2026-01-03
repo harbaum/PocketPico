@@ -1,0 +1,12 @@
+# Support parts
+
+Especially the buttons need some kind of support to attach nicely to the
+Legp parts. But also the charging port needs a solid attachment.
+
+## Direction pad
+
+The direction pad needs to accomodate four tactile switches.
+
+![Image of DPad support](./dpad_support.png)
+
+Download the [STL file for the DPad support](./dpad_support.stl).

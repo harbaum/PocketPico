@@ -39,10 +39,13 @@ All components need to be wired as depicted.
 ## Mounting inside the Lego Gameboy
 
 Everything can be mounted inside the Lego Gameboy. Some changes
-to the Lego model are needed and three 3d printed parts are being
+to the Lego model are needed and [three 3d printed parts](./stl) are being
 used to mount the push buttons:
 
 ![brickboy_inside](./docs/brickboy_inside.jpeg)
+
+A fourht 3D design allows to mount a cheap USB-C charging breakout into
+a fake cartridge.
 
 ## Flashing games
 
