@@ -47,6 +47,8 @@ used to mount the push buttons:
 A fourht 3D design allows to mount a cheap USB-C charging breakout into
 a fake cartridge.
 
+![Cartridge with USB-C](./docs/cartridge_usb_c.jpeg)
+
 ## Flashing games
 
 Without SD card we need another means to install the game cartridge
